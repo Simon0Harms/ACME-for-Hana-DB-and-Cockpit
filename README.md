@@ -1,6 +1,6 @@
 # sap-acme-certs
 
-Automated TLS certificate renewal for SAP HANA landscapes using [acme.sh](https://github.com/acmesh-official/acme.sh).
+Automated TLS certificate renewal for SAP HANA landscapes using [acme.sh](https://github.com/acmesh-official/acme.sh) + CheckMK Monitoring.
 
 One certificate per host, issued once by any ACME CA, distributed to every TLS endpoint that needs it:
 
