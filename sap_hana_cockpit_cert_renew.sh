@@ -46,6 +46,17 @@
 #
 # Exit codes:
 #   0 = ok, 1 = deploy or verification failed, 2 = precondition not met
+#
+# -----------------------------------------------------------------------------
+# LICENSE
+# -----------------------------------------------------------------------------
+# GNU General Public License v3.0 or later. See the LICENSE file in the
+# repository root, or <https://www.gnu.org/licenses/gpl-3.0.html>.
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# This program comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+# applicable law.
 # =============================================================================
 
 set -u

@@ -25,6 +25,17 @@
 #   45 1 * * * /opt/sap-acme/sap_hostagent_cert_renew_additional.sh deploy >/dev/null 2>&1
 #
 # Must run as root (chown sapadm, saphostexec -restart).
+#
+# -----------------------------------------------------------------------------
+# LICENSE
+# -----------------------------------------------------------------------------
+# GNU General Public License v3.0 or later. See the LICENSE file in the
+# repository root, or <https://www.gnu.org/licenses/gpl-3.0.html>.
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# This program comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+# applicable law.
 # =============================================================================
 
 set -u

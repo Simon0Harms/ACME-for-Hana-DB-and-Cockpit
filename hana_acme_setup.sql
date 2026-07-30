@@ -11,6 +11,17 @@
 --
 -- Afterwards, as <sid>adm, create ONE hdbuserstore key against the SystemDB:
 --   hdbuserstore SET ACME_RENEW "<host>:3<nn>13" ACME_RENEW "<pw>"
+--
+-- -----------------------------------------------------------------------------
+-- LICENSE
+-- -----------------------------------------------------------------------------
+-- GNU General Public License v3.0 or later. See the LICENSE file in the
+-- repository root, or <https://www.gnu.org/licenses/gpl-3.0.html>.
+--
+-- SPDX-License-Identifier: GPL-3.0-or-later
+--
+-- This program comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+-- applicable law.
 -- =============================================================================
 
 -- 1) Technical user (replace the password, and keep it identical everywhere!)

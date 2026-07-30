@@ -197,3 +197,13 @@ This is the single most important test in the repository. An interactive run pro
 ## Contributing
 
 Issues and pull requests welcome, particularly for other distributions, AIX, non-EAB CAs, and HANA revisions where the quirks above behave differently. Please keep the HANA and cockpit scripts POSIX `sh` — they run in environments without Bash guarantees.
+
+## License
+
+GNU General Public License v3.0 or later — see [LICENSE](LICENSE) or
+<https://www.gnu.org/licenses/gpl-3.0.html>.
+
+`SPDX-License-Identifier: GPL-3.0-or-later`
+
+This program comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
