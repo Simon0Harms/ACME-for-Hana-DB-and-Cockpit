@@ -88,6 +88,34 @@ Order matters: `setup` → issue/install → `activate`. Activating the PSE befo
 
 Full walkthrough: [docs/hana-database.md](docs/hana-database.md) · Cockpit: [docs/hana-cockpit.md](docs/hana-cockpit.md)
 
+## Site configuration
+
+Every value in the scripts' configuration blocks can be overridden from a single
+external file instead of editing eight script headers. Copy
+`site.conf.example` to `site.conf` next to the scripts, or point `$SITE_CONF`
+at it:
+
+```sh
+cp site.conf.example /opt/sap-acme/site.conf
+# or, in cron:
+SITE_CONF=/opt/sap-acme/site.conf /opt/sap-acme/sap_hana_cert_renew.sh verify
+```
+
+Typical contents: notification address, Checkmk spool path and thresholds, the
+XSA org and space, and full paths to `hdbsql`/`xs` where the glob does not find
+them. Variables a given script does not know are ignored by it, so one file
+serves all of them.
+
+Note that the cockpit script is meant to live in the `<sid>adm` home directory
+rather than next to the others, so either copy `site.conf` there as well or set
+`SITE_CONF` in its cron entry.
+
+The file is sourced as shell code with the calling script's privileges, so it
+needs the same protection as the scripts themselves — owner `root`, mode `644`,
+never group- or world-writable. Keep passwords out of it; they belong in the
+hdbuserstore and in the mode-600 XSA password file. `site.conf` is in
+`.gitignore` so real values stay out of the repository.
+
 ## Modes
 
 | Invocation | Effect |

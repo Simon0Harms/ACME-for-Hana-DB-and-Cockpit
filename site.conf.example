@@ -1,0 +1,97 @@
+# =============================================================================
+# site.conf.example -- optional site configuration
+#
+# Copy to site.conf next to the scripts (or point $SITE_CONF at it) to override
+# the defaults in the scripts' configuration blocks. This keeps one script set
+# for the whole landscape with all site-specific values in a single file.
+#
+#   cp site.conf.example site.conf
+#   $EDITOR site.conf
+#
+# The scripts look for $SITE_CONF first, then site.conf next to the script. In
+# cron you can also prefix it:
+#   SITE_CONF=/opt/sap-acme/site.conf /opt/sap-acme/sap_hana_cert_renew.sh verify
+#
+# CAUTION: the file is sourced as shell code and runs with the calling script's
+# privileges (<sid>adm or root). Give it the same protection as the scripts:
+# owner root, mode 644, never group- or world-writable. Do not put passwords
+# here -- those belong in the hdbuserstore and in ~/.xsa_cert_renew.pw.
+#
+# Every variable is optional; omit what you do not need. Variables a given
+# script does not know are simply ignored by it.
+#
+# Note: site.conf is deliberately in .gitignore -- keep your real values out of
+# the repository.#
+# -----------------------------------------------------------------------------
+# LICENSE
+# -----------------------------------------------------------------------------
+# GNU General Public License v3.0 or later. See the LICENSE file in the
+# repository root, or <https://www.gnu.org/licenses/gpl-3.0.html>.
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# This program comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+# applicable law.
+# =============================================================================
+
+# --------------------------- Notification ------------------------------------
+# Only the Host Agent script sends mail (it runs as root). The HANA and cockpit
+# scripts alert exclusively through Checkmk.
+#MAILTO="sap-admins@example.com"
+
+# --------------------------- Checkmk -----------------------------------------
+#SPOOL_DIR="/var/lib/check_mk_agent/spool"
+#CMK_SPOOL="/var/lib/check_mk_agent/spool"    # variable name in the Host Agent script
+
+# 25h max age: if the daily run stops, the service goes stale. That is the
+# monitoring watching itself -- do not raise it without a stale notification rule.
+#SPOOL_MAX_AGE=90000
+#CMK_MAX_AGE=90000
+
+# Remaining-lifetime thresholds. acme.sh renews after 60 days, so crossing these
+# means at least one renewal cycle was lost.
+#CERT_WARN_DAYS=20
+#CERT_CRIT_DAYS=10
+
+# --------------------------- HANA objects ------------------------------------
+# Naming convention. Only change these if you rename in ALL databases at once;
+# the setup script and the renewal script have to agree.
+#PSE_NAME="ACME_SSL"
+#USTORE_KEY="ACME_RENEW"
+#ACME_USER="ACME_RENEW"
+#CA_CERT_NAME="ACME_ROOT_CA"
+
+# Root CA override for chain completion. Leave unset for automatic completion
+# (system trust store, then AIA download). Only needed for hosts that are
+# offline and do not have the root in their trust store.
+#ROOT_CA_FILE="/etc/ssl/certs/your-root-ca.pem"
+
+# --------------------------- HANA Cockpit (XSA) ------------------------------
+# From "xs orgs" and "xs spaces".
+#XSA_ORG="your-org"
+#XSA_SPACE="SAP"
+
+# Dedicated technical user with the XS_CONTROLLER_ADMIN role collection:
+#   xs create-user acme_renew '<pw>' --no-password-change
+#   xs assign-role-collection XS_CONTROLLER_ADMIN acme_renew
+#XSA_USER="acme_renew"
+#XSA_PW_FILE="${HOME}/.xsa_cert_renew.pw"     # mode 600
+
+# How long to wait for the router after the XSA restart.
+#RESTART_TIMEOUT=900
+#POLL_INTERVAL=15
+
+# --------------------------- Binaries ----------------------------------------
+# The scripts locate these by glob. If the glob misses on a host (check with
+# "which hdbsql" / "which xs"), set the FULL path here.
+#HDBSQL="/usr/sap/<SID>/HDB<nn>/exe/hdbsql"
+#XS="/usr/sap/<SID>/xs/bin/xs"
+#OPENSSL="/usr/bin/openssl"
+
+# --------------------------- Per-host overrides ------------------------------
+# Normally SID, FQDN and the instance number are derived at runtime. Pin them
+# only for special cases such as virtual hostnames -- and remember that a shared
+# site.conf applies to every host, so guard host-specific values:
+#case "$(hostname -s)" in
+#    special-host) FQDN="service-name.example.com" ;;
+#esac

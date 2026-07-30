@@ -56,6 +56,21 @@ TMP_KEY_BASE="ACME_SETUP_TMP"   # temporaere hdbuserstore-Keys (werden geloescht
 STATE_DIR="${HOME}/.sap_hana_cert_renew"
 LOG_FILE="${STATE_DIR}/setup.log"
 
+# --------------------------- Site-Konfiguration -----------------------------
+# Optionale externe Konfiguration: ueberschreibt die Defaults oben mit
+# standortspezifischen Werten (Mailadresse, XSA-Org, Schwellwerte ...).
+# Gesucht wird $SITE_CONF, sonst site.conf neben diesem Skript.
+# ACHTUNG: Die Datei wird als Shell-Code gesourct und laeuft mit den Rechten
+# dieses Skripts -- gleiche Schutzanforderungen wie fuer das Skript selbst
+# (Owner root, Mode 644, NICHT gruppen-/weltschreibbar).
+# Hinweis: Wird STATE_DIR in der Conf geaendert, muessen LOG_FILE (und ggf.
+# LOCK_DIR/MARKER) dort ebenfalls gesetzt werden -- sie werden oben abgeleitet.
+SITE_CONF="${SITE_CONF:-$(dirname "$0")/site.conf}"
+if [ -r "$SITE_CONF" ]; then
+    # shellcheck disable=SC1090
+    . "$SITE_CONF"
+fi
+
 # --------------------------- Hilfsfunktionen --------------------------------
 log() {
     printf '%s [%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$$" "$1" >> "$LOG_FILE"

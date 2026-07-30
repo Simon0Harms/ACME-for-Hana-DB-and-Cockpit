@@ -1,0 +1,23 @@
+# Site configuration holding real values (the .example stays in git)
+site.conf
+
+# Never commit ACME account data, EAB credentials, or host-to-directory mappings
+acme.env
+account.conf
+ca/
+
+# Never commit private keys, certificates, or password files
+*.key
+*.pem
+*.p12
+*.pfx
+*.pse
+*.pw
+certs/
+
+# Local state produced by the scripts
+renew.log
+setup.log
+deployed.*
+ca_cache/
+lock/

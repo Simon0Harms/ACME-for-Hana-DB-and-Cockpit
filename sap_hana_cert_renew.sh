@@ -87,6 +87,21 @@ LOCK_DIR="${STATE_DIR}/lock"
 HDBSQL="hdbsql"
 OPENSSL="openssl"
 
+# --------------------------- Site configuration -----------------------------
+# Optional external configuration: overrides the defaults above with
+# site-specific values (mail address, XSA org, thresholds, ...).
+# The script looks at $SITE_CONF, otherwise at site.conf next to itself.
+# CAUTION: the file is sourced as shell code and runs with this script's
+# privileges -- it needs the same protection as the script itself
+# (owner root, mode 644, never group- or world-writable).
+# Note: if you override STATE_DIR here, also set LOG_FILE (and LOCK_DIR /
+# MARKER where present) in the conf -- they are derived above.
+SITE_CONF="${SITE_CONF:-$(dirname "$0")/site.conf}"
+if [ -r "$SITE_CONF" ]; then
+    # shellcheck disable=SC1090
+    . "$SITE_CONF"
+fi
+
 # --------------------------- Helper functions -------------------------------
 log() {
     printf '%s [%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$$" "$1" >> "$LOG_FILE"
