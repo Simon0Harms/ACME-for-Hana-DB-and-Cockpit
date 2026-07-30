@@ -113,16 +113,55 @@ OPENSSL="openssl"
 # --------------------------- Site-Konfiguration -----------------------------
 # Optionale externe Konfiguration: ueberschreibt die Defaults oben mit
 # standortspezifischen Werten (Mailadresse, XSA-Org, Schwellwerte ...).
-# Gesucht wird $SITE_CONF, sonst site.conf neben diesem Skript.
+#
+# Suchreihenfolge:
+#   1. $SITE_CONF, falls gesetzt und lesbar
+#   2. site.conf im Verzeichnis, in dem dieses Skript liegt (Symlinks werden
+#      aufgeloest, funktioniert auch bei relativem Aufruf oder Aufruf via PATH)
+#   3. site.conf in jedem Verzeichnis aus $SITE_CONF_DIRS / SITE_CONF_DIRS
+#      unten -- noetig, wenn ein Skript woanders liegt (das Cockpit-Skript
+#      liegt im $HOME des <sid>adm), die Conf aber auf dem Share bleibt
+#
 # ACHTUNG: Die Datei wird als Shell-Code gesourct und laeuft mit den Rechten
 # dieses Skripts -- gleiche Schutzanforderungen wie fuer das Skript selbst
 # (Owner root, Mode 644, NICHT gruppen-/weltschreibbar).
 # Hinweis: Wird STATE_DIR in der Conf geaendert, muessen LOG_FILE (und ggf.
 # LOCK_DIR/MARKER) dort ebenfalls gesetzt werden -- sie werden oben abgeleitet.
-SITE_CONF="${SITE_CONF:-$(dirname "$0")/site.conf}"
-if [ -r "$SITE_CONF" ]; then
+
+# Zusaetzliche Suchverzeichnisse nach dem Skriptverzeichnis (leerzeichengetrennt).
+SITE_CONF_DIRS="${SITE_CONF_DIRS:-}"
+
+# Verzeichnis ermitteln, in dem dieses Skript liegt.
+_self="$0"
+case "$_self" in
+    */*) ;;
+    *) _self=$(command -v "$_self" 2>/dev/null) || _self="$0" ;;
+esac
+if [ -L "$_self" ]; then
+    _target=$(readlink "$_self" 2>/dev/null) || _target=""
+    if [ -n "$_target" ]; then
+        case "$_target" in
+            /*) _self="$_target" ;;
+            *)  _self="$(dirname "$_self")/$_target" ;;
+        esac
+    fi
+fi
+SCRIPT_DIR=$(CDPATH='' cd "$(dirname "$_self")" 2>/dev/null && pwd -P) || SCRIPT_DIR="."
+
+SITE_CONF_LOADED=""
+if [ -n "${SITE_CONF:-}" ] && [ -r "${SITE_CONF:-}" ]; then
+    SITE_CONF_LOADED="$SITE_CONF"
+else
+    for _d in "$SCRIPT_DIR" $SITE_CONF_DIRS; do
+        if [ -r "${_d}/site.conf" ]; then
+            SITE_CONF_LOADED="${_d}/site.conf"
+            break
+        fi
+    done
+fi
+if [ -n "$SITE_CONF_LOADED" ]; then
     # shellcheck disable=SC1090
-    . "$SITE_CONF"
+    . "$SITE_CONF_LOADED"
 fi
 
 # --------------------------- Hilfsfunktionen --------------------------------
@@ -366,7 +405,7 @@ fi
 [ -n "$KEY_FILE" ]    || KEY_FILE="${HOME}/certs/host.key"
 [ -n "$CHAIN_FILE" ]  || CHAIN_FILE="${HOME}/certs/host.fullchain.pem"
 
-log "Kontext: SID=${SID} INSTANCE=${INSTANCE} FQDN=${FQDN} API=${XSA_API}"
+log "Kontext: SID=${SID} INSTANCE=${INSTANCE} FQDN=${FQDN} API=${XSA_API} conf=${SITE_CONF_LOADED:-keine}"
 
 [ -r "$CHAIN_FILE" ] || die "Fullchain-Datei fehlt/unlesbar: $CHAIN_FILE"
 LOCAL_FP=$(local_fingerprint)

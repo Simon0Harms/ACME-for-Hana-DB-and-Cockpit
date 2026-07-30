@@ -8,9 +8,19 @@
 #   cp site.conf.example site.conf
 #   $EDITOR site.conf
 #
-# The scripts look for $SITE_CONF first, then site.conf next to the script. In
-# cron you can also prefix it:
-#   SITE_CONF=/opt/sap-acme/site.conf /opt/sap-acme/sap_hana_cert_renew.sh verify
+# Search order in every script:
+#   1. $SITE_CONF, if set and readable
+#   2. site.conf in the script's own directory (symlinks resolved)
+#   3. site.conf in each directory of $SITE_CONF_DIRS
+#
+# So a conf placed next to the scripts is picked up automatically. For a script
+# that lives elsewhere -- the cockpit script belongs in the <sid>adm home --
+# either export SITE_CONF_DIRS, or name the file explicitly in cron:
+#   SITE_CONF=/opt/sap-acme/site.conf "$HOME"/sap_hana_cockpit_cert_renew.sh verify
+#   SITE_CONF_DIRS=/opt/sap-acme      "$HOME"/sap_hana_cockpit_cert_renew.sh verify
+#
+# Which file was loaded is recorded in the context line of renew.log
+# ("conf=..."), so a conf that is silently not found is visible there.
 #
 # CAUTION: the file is sourced as shell code and runs with the calling script's
 # privileges (<sid>adm or root). Give it the same protection as the scripts:

@@ -106,9 +106,21 @@ XSA org and space, and full paths to `hdbsql`/`xs` where the glob does not find
 them. Variables a given script does not know are ignored by it, so one file
 serves all of them.
 
-Note that the cockpit script is meant to live in the `<sid>adm` home directory
-rather than next to the others, so either copy `site.conf` there as well or set
-`SITE_CONF` in its cron entry.
+The search order is `$SITE_CONF`, then `site.conf` in the script's own
+directory, then `site.conf` in each directory of `$SITE_CONF_DIRS`. The script
+directory is resolved properly, so relative invocations, symlinks and calls
+through `$PATH` all work.
+
+The cockpit script is meant to live in the `<sid>adm` home directory rather than
+next to the others. Point it at the shared conf with either variable:
+
+```sh
+SITE_CONF_DIRS=/opt/sap-acme "$HOME"/sap_hana_cockpit_cert_renew.sh verify
+SITE_CONF=/opt/sap-acme/site.conf "$HOME"/sap_hana_cockpit_cert_renew.sh verify
+```
+
+Each run records which file it loaded in the context line of `renew.log`
+(`conf=...`), so a conf that was silently not found is visible there.
 
 The file is sourced as shell code with the calling script's privileges, so it
 needs the same protection as the scripts themselves — owner `root`, mode `644`,

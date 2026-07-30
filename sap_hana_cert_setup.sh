@@ -71,16 +71,55 @@ LOG_FILE="${STATE_DIR}/setup.log"
 # --------------------------- Site configuration -----------------------------
 # Optional external configuration: overrides the defaults above with
 # site-specific values (mail address, XSA org, thresholds, ...).
-# The script looks at $SITE_CONF, otherwise at site.conf next to itself.
+#
+# Search order:
+#   1. $SITE_CONF, if set and readable
+#   2. site.conf in the directory this script lives in (symlinks resolved,
+#      works for relative and PATH invocations too)
+#   3. site.conf in each directory listed in $SITE_CONF_DIRS / SITE_CONF_DIRS
+#      below -- useful when a script is copied elsewhere (the cockpit script
+#      lives in the <sid>adm home) but the conf stays on the shared directory
+#
 # CAUTION: the file is sourced as shell code and runs with this script's
 # privileges -- it needs the same protection as the script itself
 # (owner root, mode 644, never group- or world-writable).
 # Note: if you override STATE_DIR here, also set LOG_FILE (and LOCK_DIR /
 # MARKER where present) in the conf -- they are derived above.
-SITE_CONF="${SITE_CONF:-$(dirname "$0")/site.conf}"
-if [ -r "$SITE_CONF" ]; then
+
+# Extra directories searched after the script directory (whitespace separated).
+SITE_CONF_DIRS="${SITE_CONF_DIRS:-}"
+
+# Resolve the directory this script lives in.
+_self="$0"
+case "$_self" in
+    */*) ;;
+    *) _self=$(command -v "$_self" 2>/dev/null) || _self="$0" ;;
+esac
+if [ -L "$_self" ]; then
+    _target=$(readlink "$_self" 2>/dev/null) || _target=""
+    if [ -n "$_target" ]; then
+        case "$_target" in
+            /*) _self="$_target" ;;
+            *)  _self="$(dirname "$_self")/$_target" ;;
+        esac
+    fi
+fi
+SCRIPT_DIR=$(CDPATH='' cd "$(dirname "$_self")" 2>/dev/null && pwd -P) || SCRIPT_DIR="."
+
+SITE_CONF_LOADED=""
+if [ -n "${SITE_CONF:-}" ] && [ -r "${SITE_CONF:-}" ]; then
+    SITE_CONF_LOADED="$SITE_CONF"
+else
+    for _d in "$SCRIPT_DIR" $SITE_CONF_DIRS; do
+        if [ -r "${_d}/site.conf" ]; then
+            SITE_CONF_LOADED="${_d}/site.conf"
+            break
+        fi
+    done
+fi
+if [ -n "$SITE_CONF_LOADED" ]; then
     # shellcheck disable=SC1090
-    . "$SITE_CONF"
+    . "$SITE_CONF_LOADED"
 fi
 
 # --------------------------- Helper functions -------------------------------
@@ -234,7 +273,7 @@ RENEW_SCRIPT="$(dirname "$0")/sap_hana_cert_renew.sh"
 printf '\n=== ACME first-time setup for SAP HANA (%s) ===\n' "$MODE"
 printf 'System:   SID=%s  instance=%s  FQDN=%s  SystemDB port=%s\n\n' \
     "$SID" "$INSTANCE" "$FQDN" "$SYSDB_PORT"
-log "mode=${MODE} context: SID=${SID} INSTANCE=${INSTANCE} FQDN=${FQDN}"
+log "mode=${MODE} context: SID=${SID} INSTANCE=${INSTANCE} FQDN=${FQDN} conf=${SITE_CONF_LOADED:-none}"
 
 # --------------------------- Admin connection and discovery -----------------
 printf 'Admin user for the setup (default: SYSTEM): '
