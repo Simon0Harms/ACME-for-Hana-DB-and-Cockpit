@@ -81,6 +81,10 @@ PSE_NAME="ACME_SSL"
 # Der eine hdbuserstore-Key (zeigt auf den SystemDB-Port)
 USTORE_KEY="ACME_RENEW"
 
+# Verzeichnis der acme.sh-Installation, genutzt fuer die Drift-Pruefung weiter
+# unten (siehe "acme.sh-Store" im Verifikationsteil). Leer = $HOME/.acme.sh.
+ACME_HOME=""
+
 # CheckMK-Spool
 SPOOL_DIR="/var/lib/check_mk_agent/spool"
 SPOOL_MAX_AGE=90000                    # 25h -- "verify" laeuft taeglich per Cron
@@ -562,6 +566,35 @@ if [ -n "$END_EPOCH" ]; then
 fi
 
 # Zeitpunkt des letzten erfolgreichen Deploys (mtime des neuesten Markers)
+# Drift-Pruefung gegen den acme.sh-Store: acme.sh kopiert ein erneuertes
+# Zertifikat nur dann nach CHAIN_FILE, wenn die --install-cert-Pfade in seiner
+# Konfiguration hinterlegt sind (Le_RealFullChainPath). Fehlen sie, erneuert es
+# in seinen eigenen Store, ruft den reloadcmd trotzdem auf, und dieses Skript
+# deployt seelenruhig die ALTE Datei -- Port und lokale Datei stimmen ueberein,
+# alles sieht gruen aus, waehrend das Zertifikat still veraltet. Deshalb beide
+# vergleichen und bei Abweichung warnen.
+ACME_DRIFT=""
+_acme_home="${ACME_HOME:-${HOME}/.acme.sh}"
+if [ -d "$_acme_home" ]; then
+    _newest=""
+    for _fc in "$_acme_home"/*/fullchain.cer; do
+        [ -r "$_fc" ] || continue
+        if [ -z "$_newest" ] || [ "$_fc" -nt "$_newest" ]; then
+            _newest="$_fc"
+        fi
+    done
+    if [ -n "$_newest" ] && [ "$_newest" -nt "$CHAIN_FILE" ]; then
+        _store_fp=$("$OPENSSL" x509 -in "$_newest" -noout -fingerprint -sha256 2>/dev/null \
+            | sed 's/^.*=//')
+        if [ -n "$_store_fp" ] && [ "$_store_fp" != "$LOCAL_FP" ]; then
+            _store_end=$("$OPENSSL" x509 -in "$_newest" -noout -enddate 2>/dev/null \
+                | sed 's/^notAfter=//')
+            ACME_DRIFT=" | acme.sh-Store enthaelt ein NEUERES Zertifikat (laeuft ab ${_store_end}), das nie nach ${CHAIN_FILE} installiert wurde -- --install-cert-Pfade in ${_newest%/*} pruefen"
+            log "Drift: ${_newest} ist neuer als ${CHAIN_FILE} (${_store_fp} statt ${LOCAL_FP})"
+        fi
+    fi
+fi
+
 DEPLOY_TXT=""
 LAST_MARKER=$(ls -t "${STATE_DIR}"/deployed.* 2>/dev/null | head -n1)
 if [ -n "$LAST_MARKER" ]; then
@@ -569,18 +602,20 @@ if [ -n "$LAST_MARKER" ]; then
 fi
 
 if [ -n "$V_FAIL" ]; then
-    write_spool 2 "Zertifikat nicht aktiv auf:${V_FAIL} | OK:${V_OK:- -} | expires: ${EXPIRY}${DAYS_TXT}" "$PERF"
+    write_spool 2 "Zertifikat nicht aktiv auf:${V_FAIL} | OK:${V_OK:- -} | expires: ${EXPIRY}${DAYS_TXT}${ACME_DRIFT}" "$PERF"
     exit 1
 fi
 
 if [ -n "$V_PEND" ]; then
-    write_spool 1 "Deployt, Aktivierung ausstehend (sap_hana_cert_setup.sh activate):${V_PEND} | OK:${V_OK:- -} | expires: ${EXPIRY}${DAYS_TXT}" "$PERF"
+    write_spool 1 "Deployt, Aktivierung ausstehend (sap_hana_cert_setup.sh activate):${V_PEND} | OK:${V_OK:- -} | expires: ${EXPIRY}${DAYS_TXT}${ACME_DRIFT}" "$PERF"
     log "Verifikation: Aktivierung ausstehend fuer:${V_PEND}"
     exit 0
 fi
 
 if [ "$CERT_STATE" -gt 0 ]; then
-    write_spool "$CERT_STATE" "Zertifikat aktiv, aber Restlaufzeit unterschreitet Schwellwert -- Renewal-Kette pruefen! | expires: ${EXPIRY}${DAYS_TXT}${DEPLOY_TXT} | DBs:${V_OK}" "$PERF"
+    write_spool "$CERT_STATE" "Zertifikat aktiv, aber Restlaufzeit unterschreitet Schwellwert -- Renewal-Kette pruefen! | expires: ${EXPIRY}${DAYS_TXT}${DEPLOY_TXT}${ACME_DRIFT} | DBs:${V_OK}" "$PERF"
+elif [ -n "$ACME_DRIFT" ]; then
+    write_spool 1 "Zertifikat aktiv auf allen DBs:${V_OK} | expires: ${EXPIRY}${DAYS_TXT}${DEPLOY_TXT}${ACME_DRIFT}" "$PERF"
 else
     write_spool 0 "Zertifikat aktiv auf allen DBs:${V_OK} | expires: ${EXPIRY}${DAYS_TXT}${DEPLOY_TXT}" "$PERF"
 fi

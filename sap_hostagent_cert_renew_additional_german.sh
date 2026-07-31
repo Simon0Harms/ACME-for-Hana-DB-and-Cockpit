@@ -57,6 +57,10 @@ FQDN=""                                   # leer = hostname -f
 HA_PORT=1129                              # HTTPS-Port des Host Agent
 
 MAILTO="sap-admins@example.com"
+# Verzeichnis der acme.sh-Installation, genutzt fuer die Drift-Pruefung im
+# Verifikationsteil. Leer = abgeleitet (siehe dort).
+ACME_HOME=""
+
 CMK_SPOOL=/var/lib/check_mk_agent/spool
 CMK_MAX_AGE=90000                         # 25h -- Service wird stale, wenn der Cron ausfaellt
 CMK_SVC="SAP HostAgent Cert"
@@ -356,6 +360,36 @@ if [ -n "$END_EPOCH" ]; then
     [ "$REMAIN" -le "$WARN_S" ] && CERT_STATE=1
     [ "$REMAIN" -le "$CRIT_S" ] && CERT_STATE=2
 fi
+# Drift-Pruefung gegen den acme.sh-Store: acme.sh kopiert ein erneuertes
+# Zertifikat nur dann nach CHAIN_FILE, wenn die --install-cert-Pfade in seiner
+# Konfiguration hinterlegt sind (Le_RealFullChainPath). Fehlen sie, erneuert es
+# in seinen eigenen Store, ruft den reloadcmd trotzdem auf, und dieses Skript
+# deployt seelenruhig die ALTE Datei -- alles sieht gruen aus, waehrend das
+# Zertifikat still veraltet.
+# Der Host Agent laeuft als root; der Store gehoert dem <sid>adm, dessen
+# Zertifikat wir konsumieren -- daher aus dem Zertifikatspfad ableiten.
+ACME_DRIFT=""
+_acme_home="${ACME_HOME:-$(dirname "$(dirname "$CHAIN_FILE")")/.acme.sh}"
+if [ -d "$_acme_home" ]; then
+    _newest=""
+    for _fc in "$_acme_home"/*/fullchain.cer; do
+        [ -r "$_fc" ] || continue
+        if [ -z "$_newest" ] || [ "$_fc" -nt "$_newest" ]; then
+            _newest="$_fc"
+        fi
+    done
+    if [ -n "$_newest" ] && [ "$_newest" -nt "$CHAIN_FILE" ]; then
+        _store_fp=$("$OPENSSL" x509 -in "$_newest" -noout -fingerprint -sha256 2>/dev/null \
+            | sed 's/^.*=//')
+        if [ -n "$_store_fp" ] && [ "$_store_fp" != "$LOCAL_FP" ]; then
+            _store_end=$("$OPENSSL" x509 -in "$_newest" -noout -enddate 2>/dev/null \
+                | sed 's/^notAfter=//')
+            ACME_DRIFT=" | acme.sh-Store enthaelt ein NEUERES Zertifikat (laeuft ab ${_store_end}), das nie nach ${CHAIN_FILE} installiert wurde -- --install-cert-Pfade in ${_newest%/*} pruefen"
+            log "Drift: ${_newest} ist neuer als ${CHAIN_FILE} (${_store_fp} statt ${LOCAL_FP})"
+        fi
+    fi
+fi
+
 DEPLOY_TXT=""
 [ -f "$MARKER" ] && DEPLOY_TXT=" | letzter Deploy: $(date -r "$MARKER" '+%Y-%m-%d %H:%M')"
 
@@ -371,7 +405,9 @@ elif [ "$SERVED" != "$LOCAL_FP" ]; then
 fi
 
 if [ "$CERT_STATE" -gt 0 ]; then
-    write_spool "$CERT_STATE" "Zertifikat aktiv, aber Restlaufzeit unterschreitet Schwellwert -- Renewal-Kette pruefen! | expires: ${EXPIRY}${DAYS_TXT}${DEPLOY_TXT}" "$PERF"
+    write_spool "$CERT_STATE" "Zertifikat aktiv, aber Restlaufzeit unterschreitet Schwellwert -- Renewal-Kette pruefen! | expires: ${EXPIRY}${DAYS_TXT}${DEPLOY_TXT}${ACME_DRIFT}" "$PERF"
+elif [ -n "$ACME_DRIFT" ]; then
+    write_spool 1 "Zertifikat aktiv an Port $HA_PORT | expires: ${EXPIRY}${DAYS_TXT}${DEPLOY_TXT}${ACME_DRIFT}" "$PERF"
 else
     write_spool 0 "Zertifikat aktiv an Port $HA_PORT | expires: ${EXPIRY}${DAYS_TXT}${DEPLOY_TXT}" "$PERF"
 fi

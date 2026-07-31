@@ -155,6 +155,14 @@ Three failure modes are covered, deliberately:
 
 **Remaining lifetime below threshold** → WARN/CRIT (default 20/10 days). Since acme.sh renews after 60 days, crossing that line means at least one renewal cycle was lost. The alert arrives weeks before anything actually expires.
 
+**The deployed file is behind the acme.sh store** → WARN. acme.sh only copies a
+renewed certificate to the deploy location when the `--install-cert` paths are
+recorded in its config. If they are missing it renews into its own store, calls
+the reload command anyway, and the scripts deploy the *old* file — port and
+local file agree, so everything looks green while the certificate quietly ages.
+Each run compares the newest `fullchain.cer` in the acme.sh store against the
+file it deploys from and warns on a mismatch.
+
 **The check itself stopped running** → stale, via the 25-hour spool max age. This is not decoration: the one real incident during development was a `--reloadcmd` that died before writing the spool file, and stale was the only signal that existed.
 
 Use the metric name `certificate_remaining_validity` (seconds). Checkmk only renders a Perf-O-Meter for metric names it knows, and this is the one the built-in certificate checks use. A custom name gives you a graph but no Perf-O-Meter. The WARN/CRIT decision is computed in the script rather than delegated to Checkmk, so the semantics are visible in the code.

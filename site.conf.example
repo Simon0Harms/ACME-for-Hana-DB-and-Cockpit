@@ -91,6 +91,12 @@
 #RESTART_TIMEOUT=900
 #POLL_INTERVAL=15
 
+# --------------------------- acme.sh -----------------------------------------
+# Directory of the acme.sh installation, used for the drift check that compares
+# the deployed certificate against acme.sh's own store. Leave unset unless
+# acme.sh lives somewhere other than the default.
+#ACME_HOME="${HOME}/.acme.sh"
+
 # --------------------------- Binaries ----------------------------------------
 # The scripts locate these by glob. If the glob misses on a host (check with
 # "which hdbsql" / "which xs"), set the FULL path here.
